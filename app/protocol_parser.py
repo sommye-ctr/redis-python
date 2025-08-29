@@ -25,7 +25,6 @@ class Protocol:
 
     def _get_request_data(self, connection: socket):
         while True:
-            print("inside method")
             req = connection.recv(512)
             if not req:
                 break

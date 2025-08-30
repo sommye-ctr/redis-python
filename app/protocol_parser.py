@@ -3,7 +3,7 @@ import socket
 
 DOLLAR = '$'
 ASTERISK = '*'
-CRLF = r'\r\n'
+CRLF = '\r\n'
 
 
 class Protocol:
@@ -36,22 +36,22 @@ class Protocol:
     def _parse(self, data: str):
         lines = data.split(CRLF)
         if lines[0][0] == ASTERISK:
-            return self._handle_bulk_string(lines[1:], lines[0][1])
+            return self._handle_bulk_string(lines[1:], lines[0][1:])
 
     def _handle_bulk_string(self, lines: [str], n: str):
         try:
             length = int(n)
         except ValueError:
-            raise "Bad Request"
+            raise ValueError("Bad Request")
 
         if len(lines) == 0:
-            raise "Bad Request"
+            raise ValueError("Bad Request")
 
         match lines[1]:
             case self.ECHO_COMMAND:
-                res = f"{DOLLAR}{CRLF}{lines[3]}{CRLF}"
+                res = f"{DOLLAR}{lines[3][1:]}{CRLF}{lines[3]}{CRLF}"
             case self.PING_COMMAND:
-                res = f"{DOLLAR}{CRLF}+PONG\r\n"
+                res = f"+PONG{CRLF}"
             case _:
                 res = ""
 

@@ -1,5 +1,7 @@
 import concurrent.futures
 import socket
+import threading
+from collections import defaultdict
 
 from app.variable_meta import Variable
 from datetime import datetime
@@ -25,6 +27,7 @@ class Protocol:
     port = 6379
     _server_socket = None
     _data: dict[any, Variable] = {}
+    _locks = defaultdict(threading.Lock)
 
     def __init__(self):
         self._server_socket = socket.create_server((self.host, self.port), reuse_port=True)
@@ -96,13 +99,15 @@ class Protocol:
                     pass
                 meta[key] = v
 
-        self._data[lines[3]] = Variable(lines[5], **meta)
+        with self._locks[lines[3]]:
+            self._data[lines[3]] = Variable(lines[5], **meta)
         return f"{PLUS}OK{CRLF}"
 
     def _get(self, length: int, lines: []):
         if length < 4:
             return BAD_REQ.encode()
-        val = self._data.get(lines[3])
+        with self._locks[lines[3]]:
+            val = self._data.get(lines[3])
         if val is None or (val.expiry is not None and datetime.now() >= val.expiry):
             return NULL_BULK
         return f"{DOLLAR}{len(val.value)}{CRLF}{val.value}{CRLF}"

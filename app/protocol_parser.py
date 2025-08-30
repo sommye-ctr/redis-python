@@ -30,17 +30,14 @@ class Protocol:
                 break
             data = req.decode()
             result = self._parse(data)
-            print(result)
             connection.sendall(result)
 
     def _parse(self, data: str):
-        lines = data.split(r'\r\n')
+        lines = data.split(CRLF)
         if lines[0][0] == ASTERISK:
             return self._handle_bulk_string(lines[1:], lines[0][1:])
 
     def _handle_bulk_string(self, lines: [str], n: str):
-        print(lines)
-        print(n)
         try:
             length = int(n)
         except ValueError:

@@ -34,25 +34,28 @@ class Protocol:
             connection.sendall(result)
 
     def _parse(self, data: str):
-        lines = data.split(CRLF)
+        lines = data.split(r'\r\n')
         if lines[0][0] == ASTERISK:
             return self._handle_bulk_string(lines[1:], lines[0][1:])
 
     def _handle_bulk_string(self, lines: [str], n: str):
+        print(lines)
+        print(n)
         try:
             length = int(n)
         except ValueError:
-            raise ValueError("Bad Request")
+            return f"-ERR invalid bulk string{CRLF}".encode()
 
         if len(lines) == 0:
-            raise ValueError("Bad Request")
+            return f"-ERR bad request{CRLF}".encode()
 
-        match lines[1]:
+        match lines[1].upper():
             case self.ECHO_COMMAND:
-                res = f"{DOLLAR}{lines[3][1:]}{CRLF}{lines[3]}{CRLF}"
+                arg = lines[3]
+                res = f"{DOLLAR}{len(arg)}{CRLF}{arg}{CRLF}"
             case self.PING_COMMAND:
                 res = f"+PONG{CRLF}"
             case _:
-                res = ""
+                res = f"-ERR unknown command{CRLF}"
 
         return res.encode('utf-8')

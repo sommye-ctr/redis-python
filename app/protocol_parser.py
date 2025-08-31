@@ -122,8 +122,8 @@ class Protocol:
 
         var = self._data.get(lines[3])
         if var is not None:
-            var.value.append(lines[5])
+            var.value.extend(lines[5::2])
         else:
-            var = Variable([lines[5]])
+            var = Variable(lines[5::2])
         self._data[lines[3]] = var
         return f"{COLON}{len(var.value)}{CRLF}"

@@ -192,8 +192,25 @@ class Protocol:
         if length < 4:
             return BAD_REQ.encode()
 
+        qnt = 1
+        if length > 4:
+            try:
+                qnt = int(lines[5])
+            except ValueError:
+                return BAD_REQ.encode()
+
         var = self._data.get(lines[3])
         if var is None:
             return NULL_BULK
-        popped = var.value.popleft()
-        return f"{DOLLAR}{len(popped)}{CRLF}{popped}{CRLF}"
+        qnt = min(qnt, len(var.value))
+        popped = []
+        for _ in range(qnt):
+            popped.append(var.value.popleft())
+
+        if qnt == 1:
+            return f"{DOLLAR}{len(popped[0])}{CRLF}{popped[0]}{CRLF}"
+        resp = f"{ASTERISK}{qnt}{CRLF}"
+        for p in popped:
+            resp += f"{DOLLAR}{len(p)}{CRLF}"
+            resp += f"{p}{CRLF}"
+        return resp

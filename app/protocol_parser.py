@@ -28,6 +28,7 @@ class Protocol:
     RPUSH_CMD = "RPUSH"
     LRANGE_CMD = "LRANGE"
     LPUSH_CMD = "LPUSH"
+    LLEN_CMD = "LLEN"
 
     host = 'localhost'
     port = 6379
@@ -83,6 +84,8 @@ class Protocol:
                 res = self._lrange(length, lines)
             case self.LPUSH_CMD:
                 res = self._push(length, lines, True)
+            case self.LLEN_CMD:
+                res = self._llen(length, lines)
             case _:
                 res = UNKNOWN_CMD
         return res.encode('utf-8')
@@ -141,7 +144,7 @@ class Protocol:
         self._data[lines[3]] = var
         return f"{COLON}{len(var.value)}{CRLF}"
 
-    def _lrange(self, length: int, lines: []):
+    def _lrange(self, length: int, lines: list):
         if length < 8:
             return BAD_REQ.encode()
 
@@ -173,3 +176,11 @@ class Protocol:
             resp += f"{DOLLAR}{len(v)}{CRLF}"
             resp += f"{v}{CRLF}"
         return resp
+
+    def _llen(self, length: int, lines: list):
+        if length < 4:
+            return BAD_REQ.encode()
+
+        var = self._data.get(lines[3])
+        l = 0 if var is None else len(var.value)
+        return f"{COLON}{l}{CRLF}"

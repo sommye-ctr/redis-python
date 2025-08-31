@@ -1,7 +1,7 @@
 import concurrent.futures
 import socket
 import threading
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from app.variable_meta import Variable
 from datetime import datetime
@@ -27,6 +27,7 @@ class Protocol:
     GET_CMD = "GET"
     RPUSH_CMD = "RPUSH"
     LRANGE_CMD = "LRANGE"
+    LPUSH_CMD = "LPUSH"
 
     host = 'localhost'
     port = 6379
@@ -77,9 +78,11 @@ class Protocol:
             case self.GET_CMD:
                 res = self._get(length, lines)
             case self.RPUSH_CMD:
-                res = self._rpush(length, lines)
+                res = self._push(length, lines)
             case self.LRANGE_CMD:
                 res = self._lrange(length, lines)
+            case self.LPUSH_CMD:
+                res = self._push(length, lines, True)
             case _:
                 res = UNKNOWN_CMD
         return res.encode('utf-8')
@@ -87,13 +90,13 @@ class Protocol:
     def _ping(self):
         return f"{PLUS}PONG{CRLF}"
 
-    def _echo(self, length: int, lines: []):
+    def _echo(self, length: int, lines: list):
         if length < 4:
             return BAD_REQ.encode()
         arg = lines[3]
         return f"{DOLLAR}{len(arg)}{CRLF}{arg}{CRLF}"
 
-    def _set(self, length: int, lines: []):
+    def _set(self, length: int, lines: list):
         meta = {}
         if length < 6:
             return BAD_REQ.encode()
@@ -112,7 +115,7 @@ class Protocol:
             self._data[lines[3]] = Variable(lines[5], **meta)
         return f"{PLUS}OK{CRLF}"
 
-    def _get(self, length: int, lines: []):
+    def _get(self, length: int, lines: list):
         if length < 4:
             return BAD_REQ.encode()
         with self._locks[lines[3]]:
@@ -121,15 +124,20 @@ class Protocol:
             return NULL_BULK
         return f"{DOLLAR}{len(val.value)}{CRLF}{val.value}{CRLF}"
 
-    def _rpush(self, length: int, lines: []):
+    def _push(self, length: int, lines: list, left: bool = False):
         if length < 6:
             return BAD_REQ.encode()
 
         var = self._data.get(lines[3])
         if var is not None:
-            var.value.extend(lines[5::2])
+            if left:
+                v = lines[5::2]
+                var.value.extendleft(v)
+            else:
+                var.value.extend(lines[5::2])
         else:
-            var = Variable(lines[5::2])
+            q = deque(lines[5::2])
+            var = Variable(q)
         self._data[lines[3]] = var
         return f"{COLON}{len(var.value)}{CRLF}"
 

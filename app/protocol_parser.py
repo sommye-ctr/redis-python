@@ -144,12 +144,23 @@ class Protocol:
             return BAD_REQ.encode()
 
         var = self._data.get(lines[3])
-        if var is None or start >= len(var.value) or start > end:
+        if var is None:
             return EMPTY_ARR
 
-        resp_length = min(end - start + 1, len(var.value) - start)
+        n = len(var.value)
+        if start < 0:
+            start += n
+            start = max(start, 0)
+        if end < 0:
+            end += n
+            end = max(end, 0)
+
+        if start >= len(var.value) or start > end:
+            return EMPTY_ARR
+
+        resp_length = min(end - start + 1, n - start)
         resp = f"{ASTERISK}{resp_length}{CRLF}"
-        for i in range(start, min(end + 1, len(var.value))):
+        for i in range(start, min(end + 1, n)):
             v = var.value[i]
             resp += f"{DOLLAR}{len(v)}{CRLF}"
             resp += f"{v}{CRLF}"

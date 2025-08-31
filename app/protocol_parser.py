@@ -29,6 +29,7 @@ class Protocol:
     LRANGE_CMD = "LRANGE"
     LPUSH_CMD = "LPUSH"
     LLEN_CMD = "LLEN"
+    LPOP_CMD = "LPOP"
 
     host = 'localhost'
     port = 6379
@@ -86,6 +87,8 @@ class Protocol:
                 res = self._push(length, lines, True)
             case self.LLEN_CMD:
                 res = self._llen(length, lines)
+            case self.LPOP_CMD:
+                res = self._lpop(length, lines)
             case _:
                 res = UNKNOWN_CMD
         return res.encode('utf-8')
@@ -184,3 +187,13 @@ class Protocol:
         var = self._data.get(lines[3])
         l = 0 if var is None else len(var.value)
         return f"{COLON}{l}{CRLF}"
+
+    def _lpop(self, length: int, lines: list):
+        if length < 4:
+            return BAD_REQ.encode()
+
+        var = self._data.get(lines[3])
+        if var is None:
+            return NULL_BULK
+        popped = var.value.popleft()
+        return f"{DOLLAR}{len(popped)}{CRLF}{popped}{CRLF}"

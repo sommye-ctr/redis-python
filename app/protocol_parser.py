@@ -9,6 +9,7 @@ from datetime import datetime
 DOLLAR = '$'
 ASTERISK = '*'
 PLUS = "+"
+COLON = ":"
 CRLF = '\r\n'
 NULL_BULK = f"{DOLLAR}-1{CRLF}"
 
@@ -22,6 +23,7 @@ class Protocol:
     PING_CMD = "PING"
     SET_CMD = "SET"
     GET_CMD = "GET"
+    RPUSH_CMD = "RPUSH"
 
     host = 'localhost'
     port = 6379
@@ -71,6 +73,8 @@ class Protocol:
                 res = self._set(length, lines)
             case self.GET_CMD:
                 res = self._get(length, lines)
+            case self.RPUSH_CMD:
+                res = self._rpush(length, lines)
             case _:
                 res = UNKNOWN_CMD
         return res.encode('utf-8')
@@ -111,3 +115,15 @@ class Protocol:
         if val is None or (val.expiry is not None and datetime.now() >= val.expiry):
             return NULL_BULK
         return f"{DOLLAR}{len(val.value)}{CRLF}{val.value}{CRLF}"
+
+    def _rpush(self, length: int, lines: []):
+        if length < 6:
+            return BAD_REQ.encode()
+
+        var = self._data.get(lines[3])
+        if var is not None:
+            var.value.append(lines[5])
+        else:
+            var = Variable([lines[5]])
+        self._data[lines[3]] = var
+        return f"{COLON}{len(var.value)}{CRLF}"

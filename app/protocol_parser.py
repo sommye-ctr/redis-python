@@ -11,7 +11,9 @@ ASTERISK = '*'
 PLUS = "+"
 COLON = ":"
 CRLF = '\r\n'
+
 NULL_BULK = f"{DOLLAR}-1{CRLF}"
+EMPTY_ARR = f"{ASTERISK}0{CRLF}"
 
 BAD_REQ = f"-ERR bad request{CRLF}"
 INVALID_BULK = f"-ERR invalid bulk string{CRLF}"
@@ -24,6 +26,7 @@ class Protocol:
     SET_CMD = "SET"
     GET_CMD = "GET"
     RPUSH_CMD = "RPUSH"
+    LRANGE_CMD = "LRANGE"
 
     host = 'localhost'
     port = 6379
@@ -75,6 +78,8 @@ class Protocol:
                 res = self._get(length, lines)
             case self.RPUSH_CMD:
                 res = self._rpush(length, lines)
+            case self.LRANGE_CMD:
+                res = self._lrange(length, lines)
             case _:
                 res = UNKNOWN_CMD
         return res.encode('utf-8')
@@ -127,3 +132,25 @@ class Protocol:
             var = Variable(lines[5::2])
         self._data[lines[3]] = var
         return f"{COLON}{len(var.value)}{CRLF}"
+
+    def _lrange(self, length: int, lines: []):
+        if length < 8:
+            return BAD_REQ.encode()
+
+        try:
+            start = int(lines[5])
+            end = int(lines[7])
+        except ValueError:
+            return BAD_REQ.encode()
+
+        var = self._data.get(lines[3])
+        if var is None or start >= len(var.value) or start > end:
+            return EMPTY_ARR
+
+        resp_length = min(end - start + 1, len(var.value) - start)
+        resp = f"{ASTERISK}{resp_length}{CRLF}"
+        for i in range(start, min(end + 1, len(var.value))):
+            v = var.value[i]
+            resp += f"{DOLLAR}{len(v)}{CRLF}"
+            resp += f"{v}{CRLF}"
+        return resp

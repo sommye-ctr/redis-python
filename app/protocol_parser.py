@@ -5,6 +5,7 @@ from app.storage import Storage
 from app.utils import fmt_integers, fmt_bulk_str, fmt_simple, fmt_array
 from app.constants import *
 
+
 class Protocol:
     ECHO_CMD = "ECHO"
     PING_CMD = "PING"
@@ -75,6 +76,8 @@ class Protocol:
                 res = self._lpop(length, lines)
             case _:
                 res = UNKNOWN_CMD
+        if isinstance(res, bytes):
+            return res
         return res.encode('utf-8')
 
     def _ping(self):

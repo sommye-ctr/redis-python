@@ -3,7 +3,7 @@ import socket
 
 from app.storage import Storage
 from app.utils import fmt_integers, fmt_bulk_str, fmt_simple, fmt_array
-from constants import *
+from app.constants import *
 
 class Protocol:
     ECHO_CMD = "ECHO"

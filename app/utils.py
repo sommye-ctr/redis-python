@@ -1,5 +1,5 @@
 from datetime import datetime
-from constants import *
+from app.constants import *
 
 
 def time_now():

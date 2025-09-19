@@ -1,24 +1,9 @@
 import concurrent.futures
 import socket
-import threading
-from collections import defaultdict, deque
 
-from app.variable_meta import Variable
-from datetime import datetime
-
-DOLLAR = '$'
-ASTERISK = '*'
-PLUS = "+"
-COLON = ":"
-CRLF = '\r\n'
-
-NULL_BULK = f"{DOLLAR}-1{CRLF}"
-EMPTY_ARR = f"{ASTERISK}0{CRLF}"
-
-BAD_REQ = f"-ERR bad request{CRLF}"
-INVALID_BULK = f"-ERR invalid bulk string{CRLF}"
-UNKNOWN_CMD = f"-ERR unknown command{CRLF}"
-
+from app.storage import Storage
+from app.utils import fmt_integers, fmt_bulk_str, fmt_simple, fmt_array
+from constants import *
 
 class Protocol:
     ECHO_CMD = "ECHO"
@@ -34,8 +19,7 @@ class Protocol:
     host = 'localhost'
     port = 6379
     _server_socket = None
-    _data: dict[any, Variable] = {}
-    _locks = defaultdict(threading.Lock)
+    _storage = Storage()
 
     def __init__(self):
         self._server_socket = socket.create_server((self.host, self.port), reuse_port=True)
@@ -94,13 +78,13 @@ class Protocol:
         return res.encode('utf-8')
 
     def _ping(self):
-        return f"{PLUS}PONG{CRLF}"
+        return fmt_simple("PONG")
 
     def _echo(self, length: int, lines: list):
         if length < 4:
             return BAD_REQ.encode()
         arg = lines[3]
-        return f"{DOLLAR}{len(arg)}{CRLF}{arg}{CRLF}"
+        return fmt_bulk_str(arg)
 
     def _set(self, length: int, lines: list):
         meta = {}
@@ -116,82 +100,45 @@ class Protocol:
                 except ValueError:
                     pass
                 meta[key] = v
-
-        with self._locks[lines[3]]:
-            self._data[lines[3]] = Variable(lines[5], **meta)
-        return f"{PLUS}OK{CRLF}"
+        self._storage.set(lines[3], lines[5], meta)
+        return fmt_simple("OK")
 
     def _get(self, length: int, lines: list):
         if length < 4:
             return BAD_REQ.encode()
-        with self._locks[lines[3]]:
-            val = self._data.get(lines[3])
-        if val is None or (val.expiry is not None and datetime.now() >= val.expiry):
+        resp = self._storage.get(lines[3])
+        if resp is None:
             return NULL_BULK
-        return f"{DOLLAR}{len(val.value)}{CRLF}{val.value}{CRLF}"
+        return fmt_bulk_str(resp.value)
 
     def _push(self, length: int, lines: list, left: bool = False):
         if length < 6:
             return BAD_REQ.encode()
-
-        var = self._data.get(lines[3])
-        if var is not None:
-            if left:
-                v = lines[5::2]
-                var.value.extendleft(v)
-            else:
-                var.value.extend(lines[5::2])
-        else:
-            q = deque(lines[5::2])
-            var = Variable(q)
-        self._data[lines[3]] = var
-        return f"{COLON}{len(var.value)}{CRLF}"
+        resp = self._storage.push(lines[3], lines[5::2], left=left)
+        if resp is None:
+            return WRONG_TYPE.encode()
+        return fmt_integers(len(resp.value))
 
     def _lrange(self, length: int, lines: list):
         if length < 8:
             return BAD_REQ.encode()
-
         try:
             start = int(lines[5])
             end = int(lines[7])
         except ValueError:
             return BAD_REQ.encode()
 
-        var = self._data.get(lines[3])
-        if var is None:
-            return EMPTY_ARR
-
-        n = len(var.value)
-        if start < 0:
-            start += n
-            start = max(start, 0)
-        if end < 0:
-            end += n
-            end = max(end, 0)
-
-        if start >= len(var.value) or start > end:
-            return EMPTY_ARR
-
-        resp_length = min(end - start + 1, n - start)
-        resp = f"{ASTERISK}{resp_length}{CRLF}"
-        for i in range(start, min(end + 1, n)):
-            v = var.value[i]
-            resp += f"{DOLLAR}{len(v)}{CRLF}"
-            resp += f"{v}{CRLF}"
-        return resp
+        resp = self._storage.lrange(lines[3], start, end)
+        return fmt_array(resp)
 
     def _llen(self, length: int, lines: list):
         if length < 4:
             return BAD_REQ.encode()
-
-        var = self._data.get(lines[3])
-        l = 0 if var is None else len(var.value)
-        return f"{COLON}{l}{CRLF}"
+        return fmt_integers(self._storage.llen(lines[3]))
 
     def _lpop(self, length: int, lines: list):
         if length < 4:
             return BAD_REQ.encode()
-
         qnt = 1
         if length > 4:
             try:
@@ -199,18 +146,11 @@ class Protocol:
             except ValueError:
                 return BAD_REQ.encode()
 
-        var = self._data.get(lines[3])
-        if var is None:
+        elements = self._storage.lpop(lines[3], qnt)
+        if elements is None:
+            return WRONG_TYPE.encode()
+        if len(elements) == 0:
             return NULL_BULK
-        qnt = min(qnt, len(var.value))
-        popped = []
-        for _ in range(qnt):
-            popped.append(var.value.popleft())
-
-        if qnt == 1:
-            return f"{DOLLAR}{len(popped[0])}{CRLF}{popped[0]}{CRLF}"
-        resp = f"{ASTERISK}{qnt}{CRLF}"
-        for p in popped:
-            resp += f"{DOLLAR}{len(p)}{CRLF}"
-            resp += f"{p}{CRLF}"
-        return resp
+        if len(elements) == 1:
+            return fmt_bulk_str(elements[0])
+        return fmt_array(elements)

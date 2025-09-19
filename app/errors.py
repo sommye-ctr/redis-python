@@ -1,0 +1,2 @@
+class WrongTypeError(Exception):
+    pass

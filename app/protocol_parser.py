@@ -1,8 +1,9 @@
 import concurrent.futures
 import socket
 
+from app.errors import WrongTypeError
 from app.storage import Storage
-from app.utils import fmt_integers, fmt_bulk_str, fmt_simple, fmt_array
+from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
 from app.constants import *
 
 
@@ -117,10 +118,11 @@ class Protocol:
     def _push(self, length: int, lines: list, left: bool = False):
         if length < 6:
             return BAD_REQ.encode()
-        resp = self._storage.push(lines[3], lines[5::2], left=left)
-        if resp is None:
+        try:
+            resp = self._storage.push(lines[3], lines[5::2], left=left)
+        except WrongTypeError:
             return WRONG_TYPE.encode()
-        return fmt_integers(len(resp.value))
+        return fmt_integer(len(resp.value))
 
     def _lrange(self, length: int, lines: list):
         if length < 8:
@@ -137,7 +139,7 @@ class Protocol:
     def _llen(self, length: int, lines: list):
         if length < 4:
             return BAD_REQ.encode()
-        return fmt_integers(self._storage.llen(lines[3]))
+        return fmt_integer(self._storage.llen(lines[3]))
 
     def _lpop(self, length: int, lines: list):
         if length < 4:
@@ -149,8 +151,9 @@ class Protocol:
             except ValueError:
                 return BAD_REQ.encode()
 
-        elements = self._storage.lpop(lines[3], qnt)
-        if elements is None:
+        try:
+            elements = self._storage.lpop(lines[3], qnt)
+        except WrongTypeError:
             return WRONG_TYPE.encode()
         if len(elements) == 0:
             return NULL_BULK

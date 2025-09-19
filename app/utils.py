@@ -14,19 +14,17 @@ def fmt_simple(s: str) -> bytes:
     return f"{PLUS}{s}{CRLF}".encode()
 
 
-def fmt_integers(n: int) -> bytes:
+def fmt_integer(n: int) -> bytes:
     return f"{COLON}{n}{CRLF}".encode()
 
 
 def fmt_bulk_str(s: any) -> bytes:
-    return f"{DOLLAR}{len(s)}{CRLF}{s}{CRLF}".encode()
+    b = str(s)
+    return f"{DOLLAR}{len(b)}{CRLF}{b}{CRLF}".encode()
 
 
 def fmt_array(arr: list) -> bytes:
-    resp = f"{ASTERISK}{len(arr)}{CRLF}"
+    resp = [f"{ASTERISK}{len(arr)}{CRLF}".encode()]
     for a in arr:
-        if a is int:
-            resp += fmt_integers(a)
-        else:
-            resp += fmt_bulk_str(a)
-    return resp.encode()
+        resp.append(fmt_integer(a) if isinstance(a, int) else fmt_bulk_str(a))
+    return b"".join(resp)

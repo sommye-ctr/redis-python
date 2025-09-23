@@ -4,6 +4,16 @@ PLUS = "+"
 COLON = ":"
 CRLF = '\r\n'
 
+ECHO_CMD = "ECHO"
+PING_CMD = "PING"
+SET_CMD = "SET"
+GET_CMD = "GET"
+RPUSH_CMD = "RPUSH"
+LRANGE_CMD = "LRANGE"
+LPUSH_CMD = "LPUSH"
+LLEN_CMD = "LLEN"
+LPOP_CMD = "LPOP"
+
 NULL_BULK = f"{DOLLAR}-1{CRLF}"
 
 BAD_REQ = f"-ERR bad request{CRLF}"

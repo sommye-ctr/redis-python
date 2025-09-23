@@ -19,8 +19,8 @@ def fmt_integer(n: int) -> bytes:
 
 
 def fmt_bulk_str(s: any) -> bytes:
-    b = str(s)
-    return f"{DOLLAR}{len(b)}{CRLF}{b}{CRLF}".encode()
+    b = s if isinstance(s, (bytes, bytearray)) else str(s).encode('utf-8')
+    return b"$" + str(len(b)).encode() + CRLF.encode() + b + CRLF.encode()
 
 
 def fmt_array(arr: list) -> bytes:

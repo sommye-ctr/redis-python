@@ -1,12 +1,11 @@
-import socket  # noqa: F401
-
+import asyncio
 from app.protocol_parser import Protocol
 
 
-def main():
+async def main():
     protocol = Protocol()
-    protocol.start_listening()
+    await protocol.start_listening()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

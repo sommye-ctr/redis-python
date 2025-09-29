@@ -14,7 +14,10 @@ LPUSH_CMD = "LPUSH"
 LLEN_CMD = "LLEN"
 LPOP_CMD = "LPOP"
 
+BLPOP_CMD = "BLPOP"
+
 NULL_BULK = f"{DOLLAR}-1{CRLF}"
+NULL_ARRAY = f"{ASTERISK}-1{CRLF}"
 
 BAD_REQ = f"-ERR bad request{CRLF}"
 INVALID_BULK = f"-ERR invalid bulk string{CRLF}"

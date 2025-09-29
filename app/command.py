@@ -1,5 +1,7 @@
+import inspect
+
 from app.constants import BAD_REQ, WRONG_TYPE, NULL_BULK, ECHO_CMD, PING_CMD, SET_CMD, GET_CMD, RPUSH_CMD, LRANGE_CMD, \
-    LLEN_CMD, LPOP_CMD, LPUSH_CMD
+    LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD
 from app.errors import WrongTypeError, UndefinedCommandError
 from app.storage import Storage
 from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
@@ -19,15 +21,19 @@ class Command:
             LPOP_CMD: self._lpop,
             RPUSH_CMD: self._rpush,
             LPUSH_CMD: self._lpush,
+            BLPOP_CMD: self._blpop,
         }
 
-    def parse(self):
+    async def parse(self):
         resp = bytearray()
         for i in self._requests:
             f = self._commands.get(i[0])
             if f is None:
                 raise UndefinedCommandError
-            resp.extend(f(i[1:]))
+            out = f(i[1:])
+            if inspect.isawaitable(out):
+                out = await out
+            resp.extend(out)
         return resp
 
     def _ping(self, _: list):
@@ -69,7 +75,7 @@ class Command:
             resp = self._storage.push(args[0], args[1:], left=False)
         except WrongTypeError:
             return WRONG_TYPE.encode()
-        return fmt_integer(len(resp.value))
+        return fmt_integer(resp)
 
     def _lpush(self, args: list):
         if len(args) < 2:
@@ -78,7 +84,7 @@ class Command:
             resp = self._storage.push(args[0], args[1:], left=True)
         except WrongTypeError:
             return WRONG_TYPE.encode()
-        return fmt_integer(len(resp.value))
+        return fmt_integer(resp)
 
     def _lrange(self, args: list):
         if len(args) < 3:
@@ -115,3 +121,15 @@ class Command:
         if len(elements) == 1:
             return fmt_bulk_str(elements[0])
         return fmt_array(elements)
+
+    async def _blpop(self, args: list):
+        if len(args) < 2:
+            return BAD_REQ.encode()
+        try:
+            timeout = int(args[1])
+        except ValueError:
+            return BAD_REQ.encode()
+        resp = await self._storage.blpop(args[0], timeout)
+        if resp is None:
+            return NULL_BULK.encode()
+        return fmt_array([args[0], resp])

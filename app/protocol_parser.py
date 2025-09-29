@@ -37,7 +37,7 @@ class Protocol:
                     except Exception:
                         pass
                     break
-                result = self._parse_requests(requests)
+                result = await self._parse_requests(requests)
                 writer.write(result)
                 await writer.drain()
         except Exception:
@@ -47,6 +47,6 @@ class Protocol:
             writer.close()
             await writer.wait_closed()
 
-    def _parse_requests(self, requests: list):
+    async def _parse_requests(self, requests: list):
         cmd = Command(self._storage, requests)
-        return cmd.parse()
+        return await cmd.parse()

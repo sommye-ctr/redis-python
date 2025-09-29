@@ -1,4 +1,6 @@
-from collections import deque
+import asyncio
+from asyncio import Future, InvalidStateError
+from collections import deque, defaultdict
 from datetime import timedelta
 
 from app.errors import WrongTypeError
@@ -10,6 +12,7 @@ class Storage:
 
     def __init__(self):
         self._data: dict[any, Variable] = {}
+        self._waiters = defaultdict(deque)
 
     def set(self, key: str, val: any, meta: dict):
         expiry = None
@@ -38,21 +41,40 @@ class Storage:
             return False
         return True
 
-    def push(self, key: str, vals: list, left: bool = False) -> Variable | None:
+    def push(self, key: str, vals: list, left: bool = False) -> int:
         var: Variable = self._data.get(key)
         if var is not None and not self._islist(key):
             raise WrongTypeError
 
+        iter_vals = reversed(vals) if left else vals
+        remaining = []
+        length = len(vals)
+
+        for v in iter_vals:
+            done = False
+            while self._waiters[key]:
+                future: Future = self._waiters[key].popleft()
+                if future.done():
+                    continue
+                try:
+                    future.set_result(v)
+                    done = True
+                    break
+                except InvalidStateError:
+                    continue
+            if not done:
+                remaining.append(v)
+
         if var is None:
-            self._data[key] = Variable(value=deque(vals))
-            var = self._data[key]
+            self._data[key] = Variable(value=deque(remaining))
         else:
+            length += len(var.value)
             if left:
-                var.value.extendleft(vals)
+                for i in reversed(remaining):
+                    var.value.appendleft(i)
             else:
                 var.value.extend(vals)
-        self._data[key] = var
-        return var
+        return length
 
     def lrange(self, key: str, start: int, end: int) -> list:
         var = self._data.get(key)
@@ -83,3 +105,24 @@ class Storage:
         for _ in range(min(count, len(var.value))):
             popped.append(var.value.popleft())
         return popped
+
+    async def blpop(self, key: str, timeout):
+        if self._data.get(key) and self._islist(key):
+            return self._data.get(key).value.popleft()
+
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        self._waiters[key].append(future)
+
+        try:
+            if timeout is None or timeout == 0:
+                return await future
+            else:
+                return await asyncio.wait_for(future, timeout)
+        except asyncio.TimeoutError:
+            return None
+        finally:
+            try:
+                self._waiters[key].remove(future)
+            except ValueError:
+                pass

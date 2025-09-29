@@ -1,7 +1,8 @@
 import inspect
+from collections import deque
 
 from app.constants import BAD_REQ, WRONG_TYPE, NULL_BULK, ECHO_CMD, PING_CMD, SET_CMD, GET_CMD, RPUSH_CMD, LRANGE_CMD, \
-    LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY
+    LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY, TYPE_CMD
 from app.errors import WrongTypeError, UndefinedCommandError
 from app.storage import Storage
 from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
@@ -22,6 +23,7 @@ class Command:
             RPUSH_CMD: self._rpush,
             LPUSH_CMD: self._lpush,
             BLPOP_CMD: self._blpop,
+            TYPE_CMD: self._type,
         }
 
     async def parse(self):
@@ -133,3 +135,15 @@ class Command:
         if resp is None:
             return NULL_ARRAY.encode()
         return fmt_array([args[0], resp])
+
+    def _type(self, args: list):
+        if len(args) < 1:
+            return BAD_REQ.encode()
+
+        resp = self._storage.get(args[0])
+        if resp is None:
+            return fmt_simple("none")
+        elif isinstance(resp.value, str):
+            return fmt_simple("string")
+        elif isinstance(resp.value, deque):
+            return fmt_simple("list")

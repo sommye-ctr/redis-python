@@ -1,7 +1,7 @@
 import inspect
 
 from app.constants import BAD_REQ, WRONG_TYPE, NULL_BULK, ECHO_CMD, PING_CMD, SET_CMD, GET_CMD, RPUSH_CMD, LRANGE_CMD, \
-    LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD
+    LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY
 from app.errors import WrongTypeError, UndefinedCommandError
 from app.storage import Storage
 from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
@@ -126,10 +126,10 @@ class Command:
         if len(args) < 2:
             return BAD_REQ.encode()
         try:
-            timeout = int(args[1])
+            timeout = float(args[1])
         except ValueError:
             return BAD_REQ.encode()
         resp = await self._storage.blpop(args[0], timeout)
         if resp is None:
-            return NULL_BULK.encode()
+            return NULL_ARRAY.encode()
         return fmt_array([args[0], resp])

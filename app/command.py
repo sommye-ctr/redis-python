@@ -2,16 +2,19 @@ import inspect
 from collections import deque
 
 from app.constants import BAD_REQ, WRONG_TYPE, NULL_BULK, ECHO_CMD, PING_CMD, SET_CMD, GET_CMD, RPUSH_CMD, LRANGE_CMD, \
-    LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY, TYPE_CMD, INCR_CMD, NOT_INTEGER, MULTI_CMD
+    LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY, TYPE_CMD, INCR_CMD, NOT_INTEGER, MULTI_CMD, EXEC_CMD, \
+    EXEC_WO_MULTI
 from app.errors import WrongTypeError, UndefinedCommandError
 from app.storage import Storage
 from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
 
 
 class Command:
-    def __init__(self, storage: Storage, requests: list[list]):
+    def __init__(self, storage: Storage, requests: list[list], peer: tuple = None):
         self._storage = storage
         self._requests = requests
+        self._peer = peer
+        self._transactions = {}
         self._commands = {
             ECHO_CMD: self._echo,
             PING_CMD: self._ping,
@@ -25,12 +28,29 @@ class Command:
             BLPOP_CMD: self._blpop,
             TYPE_CMD: self._type,
             INCR_CMD: self._incr,
-            MULTI_CMD: self._multi,
         }
 
-    async def parse(self):
+    async def execute(self):
+        cmd = self._requests[0][0].upper()
+
+        if cmd == MULTI_CMD:
+            self._transactions[self._peer] = []
+            self._transactions[self._peer].extend(self._requests[1:])
+            return fmt_simple("OK")
+        if cmd == EXEC_CMD:
+            queued = self._transactions.get(self._peer)
+            if not queued:
+                return EXEC_WO_MULTI.encode()
+            results = [await self._execute(r) for r in queued]
+            return fmt_array(results)
+        if self._peer in self._transactions:
+            self._transactions[self._peer].extend(self._requests)
+            return fmt_simple("OK")
+        return await self._execute(self._requests)
+
+    async def _execute(self, requests: list):
         resp = bytearray()
-        for i in self._requests:
+        for i in requests:
             f = self._commands.get(i[0])
             if f is None:
                 raise UndefinedCommandError
@@ -164,6 +184,3 @@ class Command:
             return NOT_INTEGER.encode()
         var.value = val + 1
         return fmt_integer(val + 1)
-
-    def _multi(self, args: list):
-        return fmt_simple("OK")

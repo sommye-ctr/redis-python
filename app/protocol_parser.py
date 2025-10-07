@@ -2,8 +2,8 @@ import asyncio
 from asyncio import StreamReader, StreamWriter
 
 from app.command import Command
-from app.storage import Storage
 from app.resp_parser import parse
+from app.storage import Storage
 
 
 class Protocol:
@@ -22,6 +22,8 @@ class Protocol:
             await server.serve_forever()
 
     async def _get_request_data(self, reader: StreamReader, writer: StreamWriter):
+        peer = writer.get_extra_info("peername")
+
         buffer = bytearray()
         try:
             while True:
@@ -37,7 +39,7 @@ class Protocol:
                     except Exception:
                         pass
                     break
-                result = await self._parse_requests(requests)
+                result = await self._parse_requests(requests, peer)
                 writer.write(result)
                 await writer.drain()
         except Exception:
@@ -47,6 +49,6 @@ class Protocol:
             writer.close()
             await writer.wait_closed()
 
-    async def _parse_requests(self, requests: list):
-        cmd = Command(self._storage, requests)
-        return await cmd.parse()
+    async def _parse_requests(self, requests: list, peer: tuple):
+        cmd = Command(self._storage, requests, peer)
+        return await cmd.execute()

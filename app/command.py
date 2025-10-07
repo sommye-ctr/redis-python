@@ -46,7 +46,7 @@ class Command:
             return fmt_array(results)
         if self._peer in self._transactions:
             self._transactions[self._peer].extend(self._requests)
-            return fmt_simple("OK")
+            return fmt_simple("QUEUED")
         return await self._execute(self._requests)
 
     async def _execute(self, requests: list):

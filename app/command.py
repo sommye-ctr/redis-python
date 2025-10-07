@@ -10,11 +10,12 @@ from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
 
 
 class Command:
+    _transactions = {}
+
     def __init__(self, storage: Storage, requests: list[list], peer: tuple = None):
         self._storage = storage
         self._requests = requests
         self._peer = peer
-        self._transactions = {}
         self._commands = {
             ECHO_CMD: self._echo,
             PING_CMD: self._ping,
@@ -38,9 +39,9 @@ class Command:
             self._transactions[self._peer].extend(self._requests[1:])
             return fmt_simple("OK")
         if cmd == EXEC_CMD:
-            queued = self._transactions.get(self._peer)
-            if not queued:
+            if self._peer not in self._transactions:
                 return EXEC_WO_MULTI.encode()
+            queued = self._transactions.pop(self._peer)
             results = [await self._execute(r) for r in queued]
             return fmt_array(results)
         if self._peer in self._transactions:

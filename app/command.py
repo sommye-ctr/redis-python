@@ -3,7 +3,7 @@ from collections import deque
 
 from app.constants import BAD_REQ, WRONG_TYPE, NULL_BULK, ECHO_CMD, PING_CMD, SET_CMD, GET_CMD, RPUSH_CMD, LRANGE_CMD, \
     LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY, TYPE_CMD, INCR_CMD, NOT_INTEGER, MULTI_CMD, EXEC_CMD, \
-    EXEC_WO_MULTI
+    EXEC_WO_MULTI, DISCARD_CMD, DISCARD_WO_MULTI
 from app.errors import WrongTypeError, UndefinedCommandError
 from app.storage import Storage
 from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
@@ -38,15 +38,24 @@ class Command:
             self._transactions[self._peer] = []
             self._transactions[self._peer].extend(self._requests[1:])
             return fmt_simple("OK")
+
         if cmd == EXEC_CMD:
             if self._peer not in self._transactions:
                 return EXEC_WO_MULTI.encode()
             queued = self._transactions.pop(self._peer)
             results = [await self._execute_single(r) for r in queued]
             return fmt_array(results, alr_formatted=True)
+
+        if cmd == DISCARD_CMD:
+            if self._peer not in self._transactions:
+                return DISCARD_WO_MULTI.encode()
+            self._transactions.pop(self._peer)
+            return fmt_simple("OK")
+
         if self._peer in self._transactions:
             self._transactions[self._peer].extend(self._requests)
             return fmt_simple("QUEUED")
+
         return await self._execute_requests(self._requests)
 
     async def _execute_requests(self, requests: list):

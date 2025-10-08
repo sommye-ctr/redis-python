@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from app.constants import *
 
 
@@ -23,8 +24,11 @@ def fmt_bulk_str(s: any) -> bytes:
     return b"$" + str(len(b)).encode() + CRLF.encode() + b + CRLF.encode()
 
 
-def fmt_array(arr: list) -> bytes:
+def fmt_array(arr: list, alr_formatted=False) -> bytes:
     resp = [f"{ASTERISK}{len(arr)}{CRLF}".encode()]
     for a in arr:
+        if alr_formatted:
+            resp.append(a)
+            continue
         resp.append(fmt_integer(a) if isinstance(a, int) else fmt_bulk_str(a))
     return b"".join(resp)

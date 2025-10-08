@@ -42,24 +42,28 @@ class Command:
             if self._peer not in self._transactions:
                 return EXEC_WO_MULTI.encode()
             queued = self._transactions.pop(self._peer)
-            results = [await self._execute(r) for r in queued]
-            return fmt_array(results)
+            results = [await self._execute_single(r) for r in queued]
+            return fmt_array(results, alr_formatted=True)
         if self._peer in self._transactions:
             self._transactions[self._peer].extend(self._requests)
             return fmt_simple("QUEUED")
-        return await self._execute(self._requests)
+        return await self._execute_requests(self._requests)
 
-    async def _execute(self, requests: list):
+    async def _execute_requests(self, requests: list):
         resp = bytearray()
         for i in requests:
-            f = self._commands.get(i[0])
-            if f is None:
-                raise UndefinedCommandError
-            out = f(i[1:])
-            if inspect.isawaitable(out):
-                out = await out
-            resp.extend(out)
+            ans = await self._execute_single(i)
+            resp.extend(ans)
         return resp
+
+    async def _execute_single(self, request: list):
+        f = self._commands.get(request[0])
+        if f is None:
+            raise UndefinedCommandError
+        out = f(request[1:])
+        if inspect.isawaitable(out):
+            out = await out
+        return out
 
     def _ping(self, _: list):
         return fmt_simple("PONG")

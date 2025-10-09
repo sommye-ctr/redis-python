@@ -8,8 +8,10 @@ from app.storage import Storage
 
 class Protocol:
     host = 'localhost'
-    port = 6379
     _storage = Storage()
+
+    def __init__(self, port: int = 6379):
+        self.port = port
 
     async def start_listening(self):
         server = await asyncio.start_server(

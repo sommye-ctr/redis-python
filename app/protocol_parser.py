@@ -5,7 +5,7 @@ from typing import Optional
 from app.command import Command
 from app.resp_parser import parse
 from app.storage import Storage
-from app.utils import gen_master_id
+from app.utils import gen_master_id, fmt_array
 
 
 class Protocol:
@@ -29,8 +29,19 @@ class Protocol:
             self.port,
             reuse_port=True
         )
+        if not self.is_master:
+            asyncio.create_task(self._connect_with_master())
         async with server:
             await server.serve_forever()
+
+    async def _connect_with_master(self):
+        reader, writer = await asyncio.open_connection(self.master_host, self.master_port)
+        message = fmt_array(["PING"])
+        writer.write(message)
+        await writer.drain()
+
+        writer.close()
+        await writer.wait_closed()
 
     async def _get_request_data(self, reader: StreamReader, writer: StreamWriter):
         peer = writer.get_extra_info("peername")

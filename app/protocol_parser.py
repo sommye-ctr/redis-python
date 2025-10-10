@@ -35,13 +35,36 @@ class Protocol:
             await server.serve_forever()
 
     async def _connect_with_master(self):
-        reader, writer = await asyncio.open_connection(self.master_host, self.master_port)
-        message = fmt_array(["PING"])
-        writer.write(message)
-        await writer.drain()
+        try:
+            reader, writer = await asyncio.open_connection(self.master_host, self.master_port)
 
-        writer.close()
-        await writer.wait_closed()
+            writer.write(fmt_array(["PING"]))
+            await writer.drain()
+            _ = await reader.readuntil(b"\r\n")
+
+            writer.write(fmt_array(["REPLCONF", "listening-port", str(self.port)]))
+            await writer.drain()
+            _ = await reader.readuntil(b"\r\n")
+
+            writer.write(fmt_array(["REPLCONF", "capa", "psync2"]))
+            await writer.drain()
+            _ = await reader.readuntil(b"\r\n")
+
+            writer.write(fmt_array(["PSYNC", "?", "-1"]))
+            await writer.drain()
+            _ = await reader.readuntil(b"\r\n")
+
+            self.master_reader = reader
+            self.master_writer = writer
+            while True:
+                data = await reader.read(4096)
+                if not data:
+                    print("Master closed connection.")
+                    break
+                print("Got replication data:", data[:80], "...")
+
+        except Exception as e:
+            print("Replication connection failed:", e)
 
     async def _get_request_data(self, reader: StreamReader, writer: StreamWriter):
         peer = writer.get_extra_info("peername")

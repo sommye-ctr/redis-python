@@ -4,7 +4,7 @@ from typing import Optional
 
 from app.constants import BAD_REQ, WRONG_TYPE, NULL_BULK, ECHO_CMD, PING_CMD, SET_CMD, GET_CMD, RPUSH_CMD, LRANGE_CMD, \
     LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY, TYPE_CMD, INCR_CMD, NOT_INTEGER, MULTI_CMD, EXEC_CMD, \
-    EXEC_WO_MULTI, DISCARD_CMD, DISCARD_WO_MULTI, INFO_CMD
+    EXEC_WO_MULTI, DISCARD_CMD, DISCARD_WO_MULTI, INFO_CMD, REPLCONF_CMD
 from app.errors import WrongTypeError, UndefinedCommandError
 from app.storage import Storage
 from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
@@ -39,6 +39,7 @@ class Command:
             TYPE_CMD: self._type,
             INCR_CMD: self._incr,
             INFO_CMD: self._info,
+            REPLCONF_CMD: self._replconf,
         }
 
     async def execute(self):
@@ -209,8 +210,11 @@ class Command:
         var.value = val + 1
         return fmt_integer(val + 1)
 
-    def _info(self, args: list):
+    def _info(self, _: list):
         val = f"role:{'master' if self._is_master else 'slave'}"
         val += f"master_replid:{self._master_id}"
         val += f"master_repl_offset:{self._master_offset}"
         return fmt_bulk_str(val)
+
+    def _replconf(self, _: list):
+        return fmt_simple("OK")

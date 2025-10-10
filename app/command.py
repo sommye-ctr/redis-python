@@ -16,11 +16,15 @@ class Command:
     def __init__(self, storage: Storage,
                  requests: list[list],
                  peer: tuple = None,
-                 is_master: Optional[bool] = None):
+                 is_master: Optional[bool] = None,
+                 master_id: str = None,
+                 master_offset: int = None):
         self._storage = storage
         self._requests = requests
         self._peer = peer
         self._is_master = is_master
+        self._master_id = master_id
+        self._master_offset = master_offset
         self._commands = {
             ECHO_CMD: self._echo,
             PING_CMD: self._ping,
@@ -207,4 +211,6 @@ class Command:
 
     def _info(self, args: list):
         val = f"role:{'master' if self._is_master else 'slave'}"
+        val += f"master_replid:{self._master_id}"
+        val += f"master_repl_offset:{self._master_offset}"
         return fmt_bulk_str(val)

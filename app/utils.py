@@ -1,4 +1,6 @@
 from datetime import datetime
+from random import choice
+from string import ascii_uppercase
 
 from app.constants import *
 
@@ -32,3 +34,7 @@ def fmt_array(arr: list, alr_formatted=False) -> bytes:
             continue
         resp.append(fmt_integer(a) if isinstance(a, int) else fmt_bulk_str(a))
     return b"".join(resp)
+
+
+def gen_master_id() -> str:
+    return ''.join(choice(ascii_uppercase) for _ in range(40))

@@ -7,10 +7,14 @@ from app.protocol_parser import Protocol
 async def main():
     parser = ArgumentParser()
     parser.add_argument("--port", type=int, default=6379, help="Set port for server")
-
+    parser.add_argument("--replicaof", nargs=2, help="Master port and server")
     args = parser.parse_args()
 
-    protocol = Protocol(port=args.port)
+    if args.replicaof:
+        m_host, m_port = args.replicaof
+        protocol = Protocol(port=args.port, master_port=m_port, master_host=m_host, is_master=False)
+    else:
+        protocol = Protocol(port=args.port)
     await protocol.start_listening()
 
 

@@ -1,9 +1,10 @@
 import inspect
 from collections import deque
+from typing import Optional
 
 from app.constants import BAD_REQ, WRONG_TYPE, NULL_BULK, ECHO_CMD, PING_CMD, SET_CMD, GET_CMD, RPUSH_CMD, LRANGE_CMD, \
     LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY, TYPE_CMD, INCR_CMD, NOT_INTEGER, MULTI_CMD, EXEC_CMD, \
-    EXEC_WO_MULTI, DISCARD_CMD, DISCARD_WO_MULTI
+    EXEC_WO_MULTI, DISCARD_CMD, DISCARD_WO_MULTI, INFO_CMD
 from app.errors import WrongTypeError, UndefinedCommandError
 from app.storage import Storage
 from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
@@ -12,10 +13,14 @@ from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
 class Command:
     _transactions = {}
 
-    def __init__(self, storage: Storage, requests: list[list], peer: tuple = None):
+    def __init__(self, storage: Storage,
+                 requests: list[list],
+                 peer: tuple = None,
+                 is_master: Optional[bool] = None):
         self._storage = storage
         self._requests = requests
         self._peer = peer
+        self._is_master = is_master
         self._commands = {
             ECHO_CMD: self._echo,
             PING_CMD: self._ping,
@@ -29,6 +34,7 @@ class Command:
             BLPOP_CMD: self._blpop,
             TYPE_CMD: self._type,
             INCR_CMD: self._incr,
+            INFO_CMD: self._info,
         }
 
     async def execute(self):
@@ -198,3 +204,7 @@ class Command:
             return NOT_INTEGER.encode()
         var.value = val + 1
         return fmt_integer(val + 1)
+
+    def _info(self, args: list):
+        val = f"role:{'master' if self._is_master else 'slave'}"
+        return fmt_bulk_str(val)

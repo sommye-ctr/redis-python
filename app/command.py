@@ -4,7 +4,7 @@ from typing import Optional
 
 from app.constants import BAD_REQ, WRONG_TYPE, NULL_BULK, ECHO_CMD, PING_CMD, SET_CMD, GET_CMD, RPUSH_CMD, LRANGE_CMD, \
     LLEN_CMD, LPOP_CMD, LPUSH_CMD, BLPOP_CMD, NULL_ARRAY, TYPE_CMD, INCR_CMD, NOT_INTEGER, MULTI_CMD, EXEC_CMD, \
-    EXEC_WO_MULTI, DISCARD_CMD, DISCARD_WO_MULTI, INFO_CMD, REPLCONF_CMD
+    EXEC_WO_MULTI, DISCARD_CMD, DISCARD_WO_MULTI, INFO_CMD, REPLCONF_CMD, PSYNC_CMD
 from app.errors import WrongTypeError, UndefinedCommandError
 from app.storage import Storage
 from app.utils import fmt_integer, fmt_bulk_str, fmt_simple, fmt_array
@@ -40,6 +40,7 @@ class Command:
             INCR_CMD: self._incr,
             INFO_CMD: self._info,
             REPLCONF_CMD: self._replconf,
+            PSYNC_CMD: self._psync,
         }
 
     async def execute(self):
@@ -218,3 +219,6 @@ class Command:
 
     def _replconf(self, _: list):
         return fmt_simple("OK")
+
+    def _psync(self, _: list):
+        return fmt_simple(f"FULLRESYNC {self._master_id} {self._master_offset}")
